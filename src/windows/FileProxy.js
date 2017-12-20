@@ -52,49 +52,17 @@ utils.extend(DirectoryEntry, Entry);
 var getFolderFromPathAsync = Windows.Storage.StorageFolder.getFolderFromPathAsync;
 var getFileFromPathAsync = Windows.Storage.StorageFile.getFileFromPathAsync;
 
-function  writeBytesAsync(storageFile, data, position) {
+var writeBytesAsync = Windows.Storage.FileIO.writeBytesAsync;
+var writeTextAsync = Windows.Storage.FileIO.writeTextAsync;
+var writeBlobAsync = function writeBlobAsync(storageFile, data) {
     return storageFile.openAsync(Windows.Storage.FileAccessMode.readWrite)
     .then(function (output) {
-        output.seek(position);
-        var dataWriter = new Windows.Storage.Streams.DataWriter(output);
-        dataWriter.writeBytes(data);
-        return dataWriter.storeAsync().then(function (size) {
-            output.size = position+size;
-            return dataWriter.flushAsync().then(function() {
-                output.close();
-                return size;
-            });
-        });
-    });
-}
-
-function writeTextAsync(storageFile, data, position) {
-    return storageFile.openAsync(Windows.Storage.FileAccessMode.readWrite)
-    .then(function (output) {
-        output.seek(position);
-        var dataWriter = new Windows.Storage.Streams.DataWriter(output);
-        dataWriter.writeString(data);
-        return dataWriter.storeAsync().then(function (size) {
-            output.size = position+size;
-            return dataWriter.flushAsync().then(function() {
-                output.close();
-                return size;
-            });
-        });
-    });
-}
-
-function writeBlobAsync(storageFile, data, position) {
-    return storageFile.openAsync(Windows.Storage.FileAccessMode.readWrite)
-    .then(function (output) {
-        output.seek(position);
         var dataSize = data.size;
         var input = (data.detachStream || data.msDetachStream).call(data);
 
         // Copy the stream from the blob to the File stream 
         return Windows.Storage.Streams.RandomAccessStream.copyAsync(input, output)
         .then(function () {
-			output.size = position+dataSize;
             return output.flushAsync().then(function () {
                 input.close();
                 output.close();
@@ -103,11 +71,11 @@ function writeBlobAsync(storageFile, data, position) {
             });
         });
     });
-}
+};
 
-function writeArrayBufferAsync(storageFile, data, position) {
-    return writeBlobAsync(storageFile, new Blob([data]), position);
-}
+var writeArrayBufferAsync = function writeArrayBufferAsync(storageFile, data) {
+    return writeBlobAsync(storageFile, new Blob([data]));
+};
 
 function cordovaPathToNative(path) {
     // turn / into \\
@@ -1028,7 +996,7 @@ module.exports = {
             function (storageFolder) {
                 storageFolder.createFileAsync(fileName, Windows.Storage.CreationCollisionOption.openIfExists).done(
                     function (storageFile) {
-                        writePromise(storageFile, data, position).done(
+                        writePromise(storageFile, data).done(
                             function (bytesWritten) {
                                 var written = bytesWritten || data.length;
                                 win(written);
